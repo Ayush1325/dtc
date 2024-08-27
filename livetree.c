@@ -62,6 +62,20 @@ struct property *build_property_delete(const char *name)
 	return new;
 }
 
+struct property *build_property_append(const char *name, struct data val,
+				       struct srcpos *srcpos)
+{
+	struct property *new = xmalloc(sizeof(*new));
+
+	memset(new, 0, sizeof(*new));
+	new->name = xstrdup(name);
+	new->append = true;
+	new->val = val;
+	new->srcpos = srcpos_copy(srcpos);
+
+	return new;
+}
+
 struct property *chain_property(struct property *first, struct property *list)
 {
 	assert(first->next == NULL);
@@ -151,8 +165,8 @@ struct node *merge_nodes(struct node *old_node, struct node *new_node)
 	for_each_label_withdel(new_node->labels, l)
 		add_label(&old_node->labels, l->label);
 
-	/* Move properties from the new node to the old node.  If there
-	 * is a collision, replace the old value with the new */
+	/* Move properties from the new node to the old node. If there
+	 * is a collision, replace/append the old value with the new */
 	while (new_node->proplist) {
 		/* Pop the property off the list */
 		new_prop = new_node->proplist;
@@ -165,17 +179,25 @@ struct node *merge_nodes(struct node *old_node, struct node *new_node)
 			continue;
 		}
 
-		/* Look for a collision, set new value if there is */
+		/* Look for a collision, set new value/append if there is */
 		for_each_property_withdel(old_node, old_prop) {
 			if (streq(old_prop->name, new_prop->name)) {
 				/* Add new labels to old property */
 				for_each_label_withdel(new_prop->labels, l)
 					add_label(&old_prop->labels, l->label);
 
-				old_prop->val = new_prop->val;
-				old_prop->deleted = 0;
-				free(old_prop->srcpos);
-				old_prop->srcpos = new_prop->srcpos;
+				if (new_prop->append) {
+					old_prop->val = data_merge(old_prop->val, new_prop->val);
+					old_prop->srcpos = srcpos_extend(old_prop->srcpos, new_prop->srcpos);
+				}
+				else {
+					old_prop->val = new_prop->val;
+					free(old_prop->srcpos);
+					old_prop->srcpos = new_prop->srcpos;
+				}
+
+				old_prop->deleted = false;
+				old_prop->append = false;
 				free(new_prop);
 				new_prop = NULL;
 				break;

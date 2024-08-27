@@ -58,6 +58,7 @@ static bool is_ref_relative(const char *ref)
 %token DT_BITS
 %token DT_DEL_PROP
 %token DT_DEL_NODE
+%token DT_APP_PROP
 %token DT_OMIT_NO_REF
 %token <propnodename> DT_PROPNODENAME
 %token <integer> DT_LITERAL
@@ -294,6 +295,11 @@ propdef:
 	| DT_DEL_PROP DT_PROPNODENAME ';'
 		{
 			$$ = build_property_delete($2);
+			free($2);
+		}
+	| DT_APP_PROP DT_PROPNODENAME '=' propdata ';'
+		{
+			$$ = build_property_append($2, $4, &@$);
 			free($2);
 		}
 	| DT_LABEL propdef

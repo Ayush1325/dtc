@@ -137,6 +137,13 @@ static void PRINTF(1, 2) lexical_error(const char *fmt, ...);
 			return DT_DEL_NODE;
 		}
 
+<*>"/append-property/"	{
+			DPRINT("Keyword: /append-property/\n");
+			DPRINT("<PROPNODENAME>\n");
+			BEGIN(PROPNODENAME);
+			return DT_APP_PROP;
+		}
+
 <*>"/omit-if-no-ref/"	{
 			DPRINT("Keyword: /omit-if-no-ref/\n");
 			DPRINT("<PROPNODENAME>\n");

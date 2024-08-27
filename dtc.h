@@ -205,6 +205,9 @@ struct bus_type {
 
 struct property {
 	bool deleted;
+	/* Flag to indicate if the property value should be appended instead
+	 * of being overwritten */
+	bool append;
 	char *name;
 	struct data val;
 
@@ -263,6 +266,8 @@ void delete_labels(struct label **labels);
 struct property *build_property(const char *name, struct data val,
 				struct srcpos *srcpos);
 struct property *build_property_delete(const char *name);
+struct property *build_property_append(const char *name, struct data val,
+				       struct srcpos *srcpos);
 struct property *chain_property(struct property *first, struct property *list);
 struct property *reverse_properties(struct property *first);
 
