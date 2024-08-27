@@ -708,6 +708,13 @@ dtc_tests () {
     run_dtc_test -I dts -O dtb -o dtc_tree1_delete.test.dtb "$SRCDIR/test_tree1_delete.dts"
     tree1_tests dtc_tree1_delete.test.dtb
 
+    # Check prop append functionality
+    run_dtc_test -I dts -O dtb -o append_prop.test.dtb "$SRCDIR/append_prop.dts"
+    run_fdtget_test "0 1" append_prop.test.dtb "/" "str-prop"
+    run_fdtget_test "2 1" append_prop.test.dtb "/" "num-prop"
+    run_fdtget_test "0 1" append_prop.test.dtb "/subnode" "str-prop"
+    run_fdtget_test "2 1" append_prop.test.dtb "/subnode" "num-prop"
+
     # Check omit-if-no-ref functionality
     run_dtc_test -I dts -O dtb -o omit-no-ref.test.dtb "$SRCDIR/omit-no-ref.dts"
     run_test check_path omit-no-ref.test.dtb not-exists "/node1"

@@ -1,0 +1,21 @@
+/dts-v1/;
+
+/ {
+	str-prop = "0";
+	num-prop = <2>;
+
+	subnode{
+		str-prop = "0";
+		num-prop = <2>;
+	};
+};
+
+/ {
+	/append-property/ str-prop = "1";
+	/append-property/ num-prop = <1>;
+
+	subnode{
+		/append-property/ str-prop = "1";
+		/append-property/ num-prop = <1>;
+	};
+};
