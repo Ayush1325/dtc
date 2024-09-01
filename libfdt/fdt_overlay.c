@@ -395,12 +395,16 @@ static int overlay_fixup_phandle(void *fdt, void *fdto, int symbols_off,
 	symbol_path = fdt_getprop(fdt, symbols_off, label, &prop_len);
 	if (!symbol_path)
 		return prop_len;
-	
-	symbol_off = fdt_path_offset(fdt, symbol_path);
-	if (symbol_off < 0)
-		return symbol_off;
-	
-	phandle = fdt_get_phandle(fdt, symbol_off);
+
+	if (prop_len == sizeof(uint32_t) && symbol_path[0] != '/') {
+		phandle = fdt32_ld((const fdt32_t *)symbol_path);
+	} else {
+		symbol_off = fdt_path_offset(fdt, symbol_path);
+		if (symbol_off < 0)
+			return symbol_off;
+		phandle = fdt_get_phandle(fdt, symbol_off);
+	}
+
 	if (!phandle)
 		return -FDT_ERR_NOTFOUND;
 
