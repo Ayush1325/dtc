@@ -1,0 +1,26 @@
+/dts-v1/;
+/plugin/;
+
+&TEST_STR {
+	str-prop = "test-node";
+};
+
+&TEST_PHANDLE {
+	phandle-prop = "test-node";
+};
+
+&TEST_CHAIN {
+	chain-prop = "test-node";
+};
+
+&SUBTEST_STR {
+	str-prop = "subtest-node";
+};
+
+&SUBTEST_PHANDLE {
+	phandle-prop = "subtest-node";
+};
+
+&SUBTEST_CHAIN {
+	chain-prop = "subtest-node";
+};

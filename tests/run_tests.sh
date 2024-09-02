@@ -1018,6 +1018,25 @@ fdtoverlay_tests() {
     # test that the new property is installed
     run_fdtoverlay_test foobar "/test-node" "test-str-property" "-ts" ${basedtb} ${targetdtb} ${overlaydtb}
 
+    symbol1_overlay="$SRCDIR/overlay_overlay_symbols1.dts"
+    symbol1_overlaydtbo=overlay_overlay_symbols1.fdtoverlay.test.dtb
+    symbol2_overlay="$SRCDIR/overlay_overlay_symbols2.dts"
+    symbol2_overlaydtbo=overlay_overlay_symbols2.fdtoverlay.test.dtb
+    symbol_user_overlay="$SRCDIR/overlay_overlay_symbols_user.dts"
+    symbol_user_overlaydtbo=overlay_overlay_symbols_user.fdtoverlay.test.dtb
+
+    # test overlay symbol resolution
+    run_dtc_test -@ -I dts -O dtb -o $symbol1_overlaydtbo $symbol1_overlay
+    run_dtc_test -@ -I dts -O dtb -o $symbol2_overlaydtbo $symbol2_overlay
+    run_dtc_test -@ -I dts -O dtb -o $symbol_user_overlaydtbo $symbol_user_overlay
+
+    run_fdtoverlay_test test-node "/test-node" "str-prop" "-ts" ${basedtb} ${targetdtb} ${symbol1_overlaydtbo} ${symbol2_overlaydtbo} ${symbol_user_overlaydtbo}
+    run_fdtoverlay_test test-node "/test-node" "phandle-prop" "-ts" ${basedtb} ${targetdtb} ${symbol1_overlaydtbo} ${symbol2_overlaydtbo} ${symbol_user_overlaydtbo}
+    run_fdtoverlay_test test-node "/test-node" "chain-prop" "-ts" ${basedtb} ${targetdtb} ${symbol1_overlaydtbo} ${symbol2_overlaydtbo} ${symbol_user_overlaydtbo}
+    run_fdtoverlay_test subtest-node "/test-node/sub-test-node" "str-prop" "-ts" ${basedtb} ${targetdtb} ${symbol1_overlaydtbo} ${symbol2_overlaydtbo} ${symbol_user_overlaydtbo}
+    run_fdtoverlay_test subtest-node "/test-node/sub-test-node" "phandle-prop" "-ts" ${basedtb} ${targetdtb} ${symbol1_overlaydtbo} ${symbol2_overlaydtbo} ${symbol_user_overlaydtbo}
+    run_fdtoverlay_test subtest-node "/test-node/sub-test-node" "chain-prop" "-ts" ${basedtb} ${targetdtb} ${symbol1_overlaydtbo} ${symbol2_overlaydtbo} ${symbol_user_overlaydtbo}
+
     stacked_base="$SRCDIR/stacked_overlay_base.dts"
     stacked_basedtb=stacked_overlay_base.fdtoverlay.test.dtb
     stacked_bar="$SRCDIR/stacked_overlay_bar.dts"

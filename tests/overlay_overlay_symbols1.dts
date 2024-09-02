@@ -1,0 +1,12 @@
+/dts-v1/;
+/plugin/;
+
+&{/} {
+	__symbols__ {
+		TEST_STR = "/test-node";
+		TEST_PHANDLE = <&test>;
+
+		SUBTEST_STR = "/test-node/sub-test-node";
+		SUBTEST_PHANDLE = <&subtest>;
+	};
+};

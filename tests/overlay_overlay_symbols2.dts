@@ -1,0 +1,9 @@
+/dts-v1/;
+/plugin/;
+
+&{/} {
+	__symbols__ {
+		TEST_CHAIN = <&TEST_PHANDLE>;
+		SUBTEST_CHAIN = <&SUBTEST_PHANDLE>;
+	};
+};
