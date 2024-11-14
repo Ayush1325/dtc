@@ -50,3 +50,14 @@
 		new-sub-test-property;
 	};
 };
+
+&test {
+	test-patha = &test;
+	test-pathb = &test;
+};
+
+&test {
+	sub-path-test-node {
+		test-path = &test;
+	};
+};
