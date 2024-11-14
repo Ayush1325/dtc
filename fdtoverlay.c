@@ -44,18 +44,27 @@ static void *apply_one(char *base, const char *overlay, size_t *buf_len,
 		       const char *name)
 {
 	char *tmp = NULL;
-	char *tmpo;
+	char *tmpo = NULL;
 	int ret;
 	bool has_symbols;
-
-	/*
-	 * We take copies first, because a failed apply can trash
-	 * both the base blob and the overlay
-	 */
-	tmpo = xmalloc(fdt_totalsize(overlay));
+	size_t tmpo_len = fdt_totalsize(overlay);
 
 	do {
+		/*
+		 * We take copies first, because a failed apply can trash
+		 * both the base blob and the overlay
+		 */
+		tmpo = xrealloc(tmpo, tmpo_len);
 		tmp = xrealloc(tmp, *buf_len);
+
+		ret = fdt_open_into(overlay, tmpo, tmpo_len);
+		if (ret) {
+			fprintf(stderr,
+				"\nFailed to make temporary copy of overlay: %s\n",
+				fdt_strerror(ret));
+			goto fail;
+		}
+
 		ret = fdt_open_into(base, tmp, *buf_len);
 		if (ret) {
 			fprintf(stderr,
@@ -66,10 +75,9 @@ static void *apply_one(char *base, const char *overlay, size_t *buf_len,
 		ret = fdt_path_offset(tmp, "/__symbols__");
 		has_symbols = ret >= 0;
 
-		memcpy(tmpo, overlay, fdt_totalsize(overlay));
-
 		ret = fdt_overlay_apply(tmp, tmpo);
 		if (ret == -FDT_ERR_NOSPACE) {
+			tmpo_len += BUF_INCREMENT;
 			*buf_len += BUF_INCREMENT;
 		}
 	} while (ret == -FDT_ERR_NOSPACE);
