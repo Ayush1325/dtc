@@ -83,4 +83,24 @@
 			};
 		};
 	};
+
+	fragment@8 {
+		target = <&test>;
+
+		__overlay__ {
+			test-patha = &test;
+			test-pathb = &test;
+			test-pathc = "a string", &test, "another string";
+		};
+	};
+
+	fragment@9 {
+		target = <&test>;
+
+		__overlay__ {
+			sub-path-test-node {
+				test-path = &test;
+			};
+		};
+	};
 };

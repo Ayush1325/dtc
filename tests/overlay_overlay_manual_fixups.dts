@@ -86,6 +86,26 @@
 		};
 	};
 
+  fragment@8 {
+		target = <0xffffffff /*&test*/>;
+
+		__overlay__ {
+			test-patha;
+			test-pathb;
+			test-pathc = "a string", "another string";
+		};
+	};
+
+	fragment@9 {
+		target = <0xffffffff /*&test*/>;
+
+		__overlay__ {
+			sub-path-test-node {
+				test-path;
+			};
+		};
+	};
+
 	__fixups__ {
 		test = "/fragment@0:target:0",
 		       "/fragment@1:target:0",
@@ -95,7 +115,13 @@
 		       "/fragment@5:target:0",
 		       "/fragment@5/__overlay__:test-phandle:0",
 		       "/fragment@6:target:0",
-		       "/fragment@7:target:0";
+		       "/fragment@7:target:0",
+		       "/fragment@8:target:0",
+		       "/fragment@8/__overlay__:test-patha:0",
+		       "/fragment@8/__overlay__:test-pathb:0",
+		       "/fragment@8/__overlay__:test-pathc:9",
+		       "/fragment@9:target:0",
+		       "/fragment@9/__overlay__/sub-path-test-node:test-path:0";
 	};
 	__local_fixups__ {
 		fragment@5 {
