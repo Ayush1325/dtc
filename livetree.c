@@ -908,6 +908,11 @@ static bool any_fixup_tree(struct dt_info *dti, struct node *node)
 			if (!get_node_by_ref(dti->dt, m->ref))
 				return true;
 		}
+		m = prop->val.markers;
+		for_each_marker_of_type(m, REF_PATH) {
+			if (!get_node_by_ref(dti->dt, m->ref))
+				return true;
+		}
 	}
 
 	for_each_child(node, c) {
@@ -924,8 +929,8 @@ static void add_fixup_entry(struct dt_info *dti, struct node *fn,
 {
 	char *entry;
 
-	/* m->ref can only be a REF_PHANDLE, but check anyway */
-	assert(m->type == REF_PHANDLE);
+	/* m->ref can only be a REF_PHANDLE or REF_PATH, but check anyway */
+	assert(m->type == REF_PHANDLE || m->type == REF_PATH);
 
 	/* The format only permits fixups for references to label, not
 	 * references to path */
@@ -957,6 +962,13 @@ static void generate_fixups_tree_internal(struct dt_info *dti,
 	for_each_property(node, prop) {
 		m = prop->val.markers;
 		for_each_marker_of_type(m, REF_PHANDLE) {
+			refnode = get_node_by_ref(dt, m->ref);
+			if (!refnode)
+				add_fixup_entry(dti, fn, node, prop, m);
+		}
+
+		m = prop->val.markers;
+		for_each_marker_of_type(m, REF_PATH) {
 			refnode = get_node_by_ref(dt, m->ref);
 			if (!refnode)
 				add_fixup_entry(dti, fn, node, prop, m);

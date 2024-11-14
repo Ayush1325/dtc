@@ -651,8 +651,10 @@ static void fixup_path_references(struct check *c, struct dt_info *dti,
 
 			refnode = get_node_by_ref(dt, m->ref);
 			if (!refnode) {
-				FAIL(c, dti, node, "Reference to non-existent node or label \"%s\"\n",
-				     m->ref);
+				if (!(dti->dtsflags & DTSF_PLUGIN))
+					FAIL(c, dti, node,
+					     "Reference to non-existent node or label \"%s\"\n",
+					     m->ref);
 				continue;
 			}
 
