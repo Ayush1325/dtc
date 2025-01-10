@@ -600,11 +600,37 @@ ERROR(name_properties, check_name_properties, NULL, &name_is_string);
  * Reference fixup functions
  */
 
+static const char *fixup_export_symbol(struct node *export_symbols,
+				       struct marker *m)
+{
+	struct property *prop;
+	struct marker *em;
+
+	for_each_property(export_symbols, prop) {
+		if (streq(m->ref, prop->name)) {
+			em = prop->val.markers;
+			for_each_marker_of_type(em, REF_PHANDLE) {
+				return em->ref;
+			}
+		}
+	}
+
+	return NULL;
+}
+
 static void fixup_phandle_references(struct check *c, struct dt_info *dti,
 				     struct node *node)
 {
 	struct node *dt = dti->dt;
 	struct property *prop;
+	struct node *child, *export_symbols = NULL;
+
+	for_each_child(node, child) {
+		if (streq(child->name, "export-symbols")) {
+			export_symbols = child;
+			break;
+		}
+	}
 
 	for_each_property(node, prop) {
 		struct marker *m = prop->val.markers;
@@ -612,13 +638,25 @@ static void fixup_phandle_references(struct check *c, struct dt_info *dti,
 		cell_t phandle;
 
 		for_each_marker_of_type(m, REF_PHANDLE) {
+			const char *ref = NULL;
+
 			assert(m->offset + sizeof(cell_t) <= prop->val.len);
 
-			refnode = get_node_by_ref(dt, m->ref);
+			/* Check export-symbols if present */
+			if (export_symbols)
+				ref = fixup_export_symbol(export_symbols, m);
+
+			/* If entry not found in export-symbols (or export-symbols not present), 
+			 * search the normal way.
+			 */
+			if (!ref)
+				ref = m->ref;
+
+			refnode = get_node_by_ref(dt, ref);
 			if (! refnode) {
 				if (!(dti->dtsflags & DTSF_PLUGIN))
 					FAIL(c, dti, node, "Reference to non-existent node or "
-							"label \"%s\"\n", m->ref);
+							"label \"%s\"\n", ref);
 				else /* mark the entry as unresolved */
 					*((fdt32_t *)(prop->val.val + m->offset)) =
 						cpu_to_fdt32(0xffffffff);
