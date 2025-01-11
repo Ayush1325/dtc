@@ -352,26 +352,58 @@ static int overlay_fixup_one_phandle(void *fdto, int symbols_off,
 }
 
 /**
- * overlay_fixup_phandle - Set an overlay phandle to the base one
+ * is_fragment_target - Check if fixup entry is fragment target.
+ * @fixup_str: fixup string
+ * @fixup_len: fixup string length
+ * returns:
+ *      0 on is not fragment target
+ *      1 on is fragment target
+ *      Negative error code on failure
+ */
+static int is_fragment_target(const char *fixup_str, uint32_t fixup_len,
+			      uint32_t *flen)
+{
+	const char *sep;
+	char *endptr;
+
+	sep = memchr(fixup_str, '@', fixup_len);
+	if (!sep || *sep != '@')
+		return -FDT_ERR_BADOVERLAY;
+
+	strtoul(sep + 1, &endptr, 10);
+	if (endptr <= (sep + 1))
+		return -FDT_ERR_BADOVERLAY;
+
+	*flen = endptr - fixup_str;
+
+	if (*endptr == '/' || strcmp(endptr, ":target:0") != 0)
+		return 0;
+
+	return 1;
+}
+
+/**
+ * overlay_fixup_target_phandle - Set an overlay phandle to the base one for 
+ *                                fragment targets.
  * @fdt: Base Device Tree blob
  * @fdto: Device tree overlay blob
  * @symbols_off: Node offset of the symbols node in the base device tree
  * @property: Property offset in the overlay holding the list of fixups
  *
- * overlay_fixup_phandle() resolves all the overlay phandles pointed
- * to in a __fixups__ property, and updates them to match the phandles
+ * overlay_fixup_target_phandle() resolves overlay fragment target phandles
+ * pointed to in a __fixups__ property, and updates them to match the phandles
  * in use in the base device tree.
  *
  * This is part of the device tree overlay application process, when
- * you want all the phandles in the overlay to point to the actual
+ * you want all the target phandles in the overlay to point to the actual
  * base dt nodes.
  *
  * returns:
  *      0 on success
  *      Negative error code on failure
  */
-static int overlay_fixup_phandle(void *fdt, void *fdto, int symbols_off,
-				 int property)
+static int overlay_fixup_target_phandle(void *fdt, void *fdto, int symbols_off,
+					int property)
 {
 	const char *value;
 	const char *label;
@@ -390,23 +422,155 @@ static int overlay_fixup_phandle(void *fdt, void *fdto, int symbols_off,
 		return len;
 	}
 
+	/* symbol_path should not be NULL for target phandles, but we cannot find out
+	 * if the fixup has any fragment targets in advance.
+	 */
 	symbol_path = fdt_getprop(fdt, symbols_off, label, &prop_len);
-	if (!symbol_path)
-		return prop_len;
-	
-	symbol_off = fdt_path_offset(fdt, symbol_path);
-	if (symbol_off < 0)
-		return symbol_off;
-	
-	phandle = fdt_get_phandle(fdt, symbol_off);
-	if (!phandle)
-		return -FDT_ERR_NOTFOUND;
+	if (symbol_path) {
+		symbol_off = fdt_path_offset(fdt, symbol_path);
+		if (symbol_off < 0)
+			return symbol_off;
+
+		phandle = fdt_get_phandle(fdt, symbol_off);
+		if (!phandle)
+			return -FDT_ERR_NOTFOUND;
+	}
+
+	/* Fragment targets have a format of `/fragment@{num}:target:0` while all
+	 * other nodes will have a format
+	 * `/fragment@{num}/__overlay__{optional_subnode}:{property}:{offset}`
+	 */
+	do {
+		const char *path, *fixup_end;
+		const char *fixup_str = value;
+		uint32_t path_len, fixup_len;
+		int ret;
+
+		fixup_end = memchr(value, '\0', len);
+		if (!fixup_end)
+			return -FDT_ERR_BADOVERLAY;
+		fixup_len = fixup_end - fixup_str;
+
+		len -= fixup_len + 1;
+		value += fixup_len + 1;
+
+		ret = is_fragment_target(fixup_str, fixup_len, &path_len);
+		if (ret < 0)
+			return ret;
+		else if (ret == 0)
+			continue;
+
+		/* Since found a target property, check that symbol_path is not empty */
+		if (!symbol_path)
+			return -FDT_ERR_NOTFOUND;
+
+		path = fixup_str;
+		if (path_len == (fixup_len - 1))
+			return -FDT_ERR_BADOVERLAY;
+
+		ret = overlay_fixup_one_phandle(fdto, symbols_off, path,
+						path_len, "target",
+						sizeof("target") - 1, 0,
+						phandle);
+		if (ret)
+			return ret;
+	} while (len > 0);
+
+	return 0;
+}
+
+/*
+ * find_export_symbol - retrieves the phandle to a symbol from export-symbols
+ *                      in a node in the base devicetreee.
+ * @fdt: pointer to base devicetreee blob
+ * @parent: base node offset
+ * @symbol: symbol name
+ *
+ * returns:
+ *      the phandle pointed by the target property
+ *      0, if the phandle was not found
+ */
+static fdt32_t find_export_symbol(void *fdt, int parent, const char *symbol)
+{
+	int child;
+	int property;
+	int lenp;
+	const char *value;
+	const char *label;
+
+	fdt_for_each_subnode(child, fdt, parent) {
+		const char *node_name = fdt_get_name(fdt, child, NULL);
+		if (strcmp(node_name, "export-symbols") == 0) {
+			fdt_for_each_property_offset(property, fdt, child) {
+				value = fdt_getprop_by_offset(fdt, property,
+							      &label, &lenp);
+
+				if (strcmp(label, symbol) == 0) {
+					return fdt32_ld((const fdt32_t *)value);
+				}
+			}
+		}
+	}
+
+	return 0;
+}
+
+/**
+ * overlay_fixup_non_target_phandle - Set an overlay phandle to the base one for
+ *                                    phandles other than fragment targets.
+ * @fdt: Base Device Tree blob
+ * @fdto: Device tree overlay blob
+ * @symbols_off: Node offset of the symbols node in the base device tree
+ * @property: Property offset in the overlay holding the list of fixups
+ *
+ * overlay_fixup_non_target_phandle() resolves all overlay phandles except
+ * fragment targets pointed to in a __fixups__ property, and updates them to
+ * match the phandles in use in the base device tree.
+ *
+ * This is part of the device tree overlay application process, when
+ * you want all the phandles in the overlay to point to the actual
+ * base dt nodes.
+ *
+ * returns:
+ *      0 on success
+ *      Negative error code on failure
+ */
+static int overlay_fixup_non_target_phandle(void *fdt, void *fdto,
+					    int symbols_off, int property)
+{
+	const char *value;
+	const char *label;
+	int len;
+	const char *symbol_path;
+	int prop_len;
+	int symbol_off;
+	uint32_t symbol_phandle;
+
+	value = fdt_getprop_by_offset(fdto, property, &label, &len);
+	if (!value) {
+		if (len == -FDT_ERR_NOTFOUND)
+			return -FDT_ERR_INTERNAL;
+
+		return len;
+	}
+
+	/* The node can still be present in export-symbols */
+	symbol_path = fdt_getprop(fdt, symbols_off, label, &prop_len);
+	if (symbol_path) {
+		symbol_off = fdt_path_offset(fdt, symbol_path);
+		if (symbol_off < 0)
+			return symbol_off;
+
+		symbol_phandle = fdt_get_phandle(fdt, symbol_off);
+		if (!symbol_phandle)
+			return -FDT_ERR_NOTFOUND;
+	}
 
 	do {
-		const char *path, *name, *fixup_end;
+		const char *path, *name, *fixup_end, *target_path;
 		const char *fixup_str = value;
-		uint32_t path_len, name_len;
-		uint32_t fixup_len;
+		uint32_t path_len, name_len, fixup_len, fragment_len,
+			target_phandle;
 		char *sep, *endptr;
 		int poffset, ret;
 
@@ -418,7 +582,14 @@ static int overlay_fixup_phandle(void *fdt, void *fdto, int symbols_off,
 		len -= fixup_len + 1;
 		value += fixup_len + 1;
 
+		ret = is_fragment_target(fixup_str, fixup_len, &fragment_len);
+		if (ret < 0)
+			return ret;
+		else if (ret == 1)
+			continue;
+
 		path = fixup_str;
+
 		sep = memchr(fixup_str, ':', fixup_len);
 		if (!sep || *sep != ':')
 			return -FDT_ERR_BADOVERLAY;
@@ -441,9 +612,25 @@ static int overlay_fixup_phandle(void *fdt, void *fdto, int symbols_off,
 		if ((*endptr != '\0') || (endptr <= (sep + 1)))
 			return -FDT_ERR_BADOVERLAY;
 
-		ret = overlay_fixup_one_phandle(fdto, symbols_off,
-						path, path_len, name, name_len,
-						poffset, phandle);
+		ret = fdt_path_offset_namelen(fdto, path, fragment_len);
+		if (ret < 0)
+			return -FDT_ERR_BADOVERLAY;
+
+		ret = fdt_overlay_target_offset(fdt, fdto, ret, &target_path);
+		if (ret < 0)
+			return ret;
+
+		target_phandle = find_export_symbol(fdt, ret, label);
+		if (!target_phandle) {
+			if (!symbol_path)
+				return -FDT_ERR_NOTFOUND;
+
+			target_phandle = symbol_phandle;
+		}
+
+		ret = overlay_fixup_one_phandle(fdto, symbols_off, path,
+						path_len, name, name_len,
+						poffset, target_phandle);
 		if (ret)
 			return ret;
 	} while (len > 0);
@@ -485,10 +672,22 @@ static int overlay_fixup_phandles(void *fdt, void *fdto)
 	if ((symbols_off < 0 && (symbols_off != -FDT_ERR_NOTFOUND)))
 		return symbols_off;
 
+	/* Resolve all target phandles */
 	fdt_for_each_property_offset(property, fdto, fixups_off) {
 		int ret;
 
-		ret = overlay_fixup_phandle(fdt, fdto, symbols_off, property);
+		ret = overlay_fixup_target_phandle(fdt, fdto, symbols_off,
+						   property);
+		if (ret)
+			return ret;
+	}
+
+	/* Resolve all other phandles */
+	fdt_for_each_property_offset(property, fdto, fixups_off) {
+		int ret;
+
+		ret = overlay_fixup_non_target_phandle(fdt, fdto, symbols_off,
+						       property);
 		if (ret)
 			return ret;
 	}
