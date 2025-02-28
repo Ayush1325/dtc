@@ -57,6 +57,7 @@ static bool is_ref_relative(const char *ref)
 %token DT_LSHIFT DT_RSHIFT DT_LE DT_GE DT_EQ DT_NE DT_AND DT_OR
 %token DT_BITS
 %token DT_DEL_PROP
+%token DT_PREV_VALUE
 %token DT_DEL_NODE
 %token DT_OMIT_NO_REF
 %token <propnodename> DT_PROPNODENAME
@@ -308,6 +309,10 @@ propdata:
 		{
 			$$ = data_merge($1, $2);
 		}
+        | propdataprefix DT_PREV_VALUE
+                {
+                        $$ = data_add_marker($1, PREV_VALUE, NULL);
+                }
 	| propdataprefix arrayprefix '>'
 		{
 			$$ = data_merge($1, $2.data);

@@ -143,6 +143,7 @@ struct node *merge_nodes(struct node *old_node, struct node *new_node)
 {
 	struct property *new_prop, *old_prop;
 	struct node *new_child, *old_child;
+	struct marker *marker;
 	struct label *l;
 
 	old_node->deleted = 0;
@@ -154,6 +155,8 @@ struct node *merge_nodes(struct node *old_node, struct node *new_node)
 	/* Move properties from the new node to the old node.  If there
 	 * is a collision, replace the old value with the new */
 	while (new_node->proplist) {
+		bool prev_value_used = false;
+
 		/* Pop the property off the list */
 		new_prop = new_node->proplist;
 		new_node->proplist = new_prop->next;
@@ -172,10 +175,26 @@ struct node *merge_nodes(struct node *old_node, struct node *new_node)
 				for_each_label_withdel(new_prop->labels, l)
 					add_label(&old_prop->labels, l->label);
 
+				marker = new_prop->val.markers;
+				for_each_marker_of_type(marker, PREV_VALUE) {
+					new_prop->val = data_insert_data(
+						new_prop->val, marker,
+						old_prop->val);
+					prev_value_used = true;
+				}
+
 				old_prop->val = new_prop->val;
 				old_prop->deleted = 0;
-				srcpos_free(old_prop->srcpos);
-				old_prop->srcpos = new_prop->srcpos;
+
+				if (prev_value_used) {
+					old_prop->srcpos =
+						srcpos_extend(old_prop->srcpos,
+							      new_prop->srcpos);
+				} else {
+					srcpos_free(old_prop->srcpos);
+					old_prop->srcpos = new_prop->srcpos;
+				}
+
 				free(new_prop);
 				new_prop = NULL;
 				break;
