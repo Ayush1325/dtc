@@ -708,6 +708,11 @@ dtc_tests () {
     run_dtc_test -I dts -O dtb -o dtc_tree1_delete.test.dtb "$SRCDIR/test_tree1_delete.dts"
     tree1_tests dtc_tree1_delete.test.dtb
 
+    # Check previous property functionality
+    run_dtc_test -I dts -O dtb -o prev_prop.test.dtb "$SRCDIR/prev_prop.dts"
+    run_dtc_test -I dts -O dtb -o prev_prop_expected.test.dtb "$SRCDIR/prev_prop_expected.dts"
+    run_test dtbs_equal_ordered prev_prop.test.dtb prev_prop_expected.test.dtb
+
     # Check omit-if-no-ref functionality
     run_dtc_test -I dts -O dtb -o omit-no-ref.test.dtb "$SRCDIR/omit-no-ref.dts"
     run_test check_path omit-no-ref.test.dtb not-exists "/node1"

@@ -1,0 +1,25 @@
+/dts-v1/;
+
+/ {
+        str-prop = "1", "2";
+        int-prop = <1 2>;
+
+        mixed-prop = "1", <0>;
+
+        subnode {
+                str-prop = "1", "2";
+                int-prop = <1 2>;
+        };
+};
+
+/ {
+        str-prop = /./, "3", "4", /./, "6";
+        int-prop = /./, <3 4>, /./, <6>;
+
+        mixed-prop = <1>, /./, "0";
+
+        subnode {
+                str-prop = /./, "3", "4", /./;
+                int-prop = /./, <3 4>, /./;
+        };
+};
