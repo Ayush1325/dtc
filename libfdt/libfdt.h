@@ -563,6 +563,59 @@ int fdt_path_offset_namelen(const void *fdt, const char *path, int namelen);
 int fdt_path_offset(const void *fdt, const char *path);
 
 /**
+ * fdt_relative_path_offset - find a tree node by its relative path
+ * @fdt: pointer to the device tree blob
+ * @path: full path of the node to locate
+ * @offset: Offset of starting node
+ *
+ * fdt_relative_path_offset() finds a node of a given path in the device
+ * tree relative to a prior node.
+ *
+ * Each path component may omit the unit address portion, but the
+ * results of this are undefined if any such path component is
+ * ambiguous (that is if there are multiple nodes at the relevant
+ * level matching the given component, differentiated only by unit
+ * address).
+ *
+ * If the path is not absolute (i.e. does not begin with '/') and the
+ * starting offset is not 0, the first component is treated as an alias.
+ * That is, the property by that name is looked up in the /aliases node,
+ * and the value of that property used in place of that first component.
+ *
+ * For example, for this small fragment
+ *
+ * / {
+ *     aliases {
+ *         i2c2 = &foo; // RHS compiles to "/soc@0/i2c@30a40000/eeprom@52"
+ *     };
+ *     soc@0 {
+ *         foo: i2c@30a40000 {
+ *             bar: eeprom@52 {
+ *             };
+ *         };
+ *     };
+ * };
+ *
+ * these would be equivalent:
+ *
+ *   /soc@0/i2c@30a40000/eeprom@52
+ *   i2c2/eeprom@52
+ *
+ * returns:
+ *	structure block offset of the node with the requested path (>=0), on
+ *		success
+ *	-FDT_ERR_BADPATH, given path does not begin with '/' and the first
+ *		component is not a valid alias
+ *	-FDT_ERR_NOTFOUND, if the requested node does not exist
+ *	-FDT_ERR_BADMAGIC,
+ *	-FDT_ERR_BADVERSION,
+ *	-FDT_ERR_BADSTATE,
+ *	-FDT_ERR_BADSTRUCTURE,
+ *	-FDT_ERR_TRUNCATED, standard meanings.
+ */
+int fdt_relative_path_offset(const void *fdt, const char *path, size_t offset);
+
+/**
  * fdt_get_name - retrieve the name of a given node
  * @fdt: pointer to the device tree blob
  * @nodeoffset: structure block offset of the starting node

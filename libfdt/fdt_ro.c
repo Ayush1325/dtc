@@ -247,11 +247,11 @@ int fdt_subnode_offset(const void *fdt, int parentoffset,
 	return fdt_subnode_offset_namelen(fdt, parentoffset, name, strlen(name));
 }
 
-int fdt_path_offset_namelen(const void *fdt, const char *path, int namelen)
+static int fdt_relative_path_offset_namelen(const void *fdt, const char *path,
+					    int namelen, size_t offset)
 {
 	const char *end = path + namelen;
 	const char *p = path;
-	int offset = 0;
 
 	FDT_RO_PROBE(fdt);
 
@@ -259,7 +259,7 @@ int fdt_path_offset_namelen(const void *fdt, const char *path, int namelen)
 		return -FDT_ERR_BADPATH;
 
 	/* see if we have an alias */
-	if (*path != '/') {
+	if (*path != '/' && offset == 0) {
 		const char *q = memchr(path, '/', end - p);
 
 		if (!q)
@@ -295,9 +295,20 @@ int fdt_path_offset_namelen(const void *fdt, const char *path, int namelen)
 	return offset;
 }
 
+int fdt_path_offset_namelen(const void *fdt, const char *path, int namelen)
+{
+	return fdt_relative_path_offset_namelen(fdt, path, namelen, 0);
+}
+
 int fdt_path_offset(const void *fdt, const char *path)
 {
 	return fdt_path_offset_namelen(fdt, path, strlen(path));
+}
+
+int fdt_relative_path_offset(const void *fdt, const char *path, size_t offset)
+{
+	return fdt_relative_path_offset_namelen(fdt, path, strlen(path),
+						offset);
 }
 
 const char *fdt_get_name(const void *fdt, int nodeoffset, int *len)
