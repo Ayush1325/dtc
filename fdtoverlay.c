@@ -24,24 +24,23 @@
 static const char usage_synopsis[] =
 	"apply a number of overlays to a base blob\n"
 	"	fdtoverlay <options> [<overlay.dtbo> [<overlay.dtbo>]]";
-static const char usage_short_opts[] = "i:o:v" USAGE_COMMON_SHORT_OPTS;
+static const char usage_short_opts[] = "i:o:t:v" USAGE_COMMON_SHORT_OPTS;
 static struct option const usage_long_opts[] = {
-	{"input",            required_argument, NULL, 'i'},
-	{"output",	     required_argument, NULL, 'o'},
-	{"verbose",	           no_argument, NULL, 'v'},
+	{ "input", required_argument, NULL, 'i' },
+	{ "output", required_argument, NULL, 'o' },
+	{ "target", optional_argument, NULL, 't' },
+	{ "verbose", no_argument, NULL, 'v' },
 	USAGE_COMMON_LONG_OPTS,
 };
-static const char * const usage_opts_help[] = {
-	"Input base DT blob",
-	"Output DT blob",
-	"Verbose messages",
-	USAGE_COMMON_OPTS_HELP
-};
+static const char *const usage_opts_help[] = { "Input base DT blob",
+					       "Output DT blob", "Target node",
+					       "Verbose messages",
+					       USAGE_COMMON_OPTS_HELP };
 
 int verbose = 0;
 
 static void *apply_one(char *base, const char *overlay, size_t *buf_len,
-		       const char *name)
+		       const char *name, const char *target)
 {
 	char *tmp = NULL;
 	char *tmpo;
@@ -68,7 +67,7 @@ static void *apply_one(char *base, const char *overlay, size_t *buf_len,
 
 		memcpy(tmpo, overlay, fdt_totalsize(overlay));
 
-		ret = fdt_overlay_apply(tmp, tmpo);
+		ret = fdt_overlay_apply_with_target(tmp, tmpo, target);
 		if (ret == -FDT_ERR_NOSPACE) {
 			*buf_len += BUF_INCREMENT;
 		}
@@ -97,7 +96,7 @@ fail:
 	return NULL;
 }
 static int do_fdtoverlay(const char *input_filename,
-			 const char *output_filename,
+			 const char *output_filename, const char *target,
 			 int argc, char *argv[])
 {
 	char *blob = NULL;
@@ -142,7 +141,7 @@ static int do_fdtoverlay(const char *input_filename,
 
 	/* apply the overlays in sequence */
 	for (i = 0; i < argc; i++) {
-		blob = apply_one(blob, ovblob[i], &buf_len, argv[i]);
+		blob = apply_one(blob, ovblob[i], &buf_len, argv[i], target);
 		if (!blob)
 			goto out_err;
 	}
@@ -171,6 +170,7 @@ int main(int argc, char *argv[])
 	int opt, i;
 	char *input_filename = NULL;
 	char *output_filename = NULL;
+	const char *target = NULL;
 
 	while ((opt = util_getopt_long()) != EOF) {
 		switch (opt) {
@@ -184,6 +184,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'v':
 			verbose = 1;
+			break;
+		case 't':
+			target = optarg;
 			break;
 		}
 	}
@@ -207,7 +210,7 @@ int main(int argc, char *argv[])
 			printf("overlay[%d] = %s\n", i, argv[i]);
 	}
 
-	if (do_fdtoverlay(input_filename, output_filename, argc, argv))
+	if (do_fdtoverlay(input_filename, output_filename, target, argc, argv))
 		return 1;
 
 	return 0;

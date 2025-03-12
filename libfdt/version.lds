@@ -68,6 +68,7 @@ LIBFDT_1.2 {
 		fdt_stringlist_get;
 		fdt_resize;
 		fdt_overlay_apply;
+		fdt_overlay_apply_with_target;
 		fdt_get_string;
 		fdt_find_max_phandle;
 		fdt_generate_phandle;
@@ -80,6 +81,7 @@ LIBFDT_1.2 {
 		fdt_setprop_inplace_namelen_partial;
 		fdt_create_with_flags;
 		fdt_overlay_target_offset;
+		fdt_overlay_target_offset_v2;
 		fdt_get_symbol;
 		fdt_get_symbol_namelen;
 	local:

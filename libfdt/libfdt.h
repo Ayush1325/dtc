@@ -2318,6 +2318,38 @@ int fdt_add_subnode(void *fdt, int parentoffset, const char *name);
 int fdt_del_node(void *fdt, int nodeoffset);
 
 /**
+ * fdt_overlay_apply_with_target - Applies a DT overlay on a base DT
+ * @fdt: pointer to the base device tree blob
+ * @fdto: pointer to the device tree overlay blob
+ * @target: target node path
+ *
+ * fdt_overlay_apply_with_target() will apply the given device tree overlay
+ * on the given node in base device tree.
+ *
+ * Expect the base device tree to be modified, even if the function
+ * returns an error.
+ *
+ * returns:
+ *	0, on success
+ *	-FDT_ERR_NOSPACE, there's not enough space in the base device tree
+ *	-FDT_ERR_NOTFOUND, the overlay points to some nonexistent nodes or
+ *		properties in the base DT
+ *	-FDT_ERR_BADPHANDLE,
+ *	-FDT_ERR_BADOVERLAY,
+ *	-FDT_ERR_NOPHANDLES,
+ *	-FDT_ERR_INTERNAL,
+ *	-FDT_ERR_BADLAYOUT,
+ *	-FDT_ERR_BADMAGIC,
+ *	-FDT_ERR_BADOFFSET,
+ *	-FDT_ERR_BADPATH,
+ *	-FDT_ERR_BADVERSION,
+ *	-FDT_ERR_BADSTRUCTURE,
+ *	-FDT_ERR_BADSTATE,
+ *	-FDT_ERR_TRUNCATED, standard meanings
+ */
+int fdt_overlay_apply_with_target(void *fdt, void *fdto, const char *target);
+
+/**
  * fdt_overlay_apply - Applies a DT overlay on a base DT
  * @fdt: pointer to the base device tree blob
  * @fdto: pointer to the device tree overlay blob
@@ -2347,6 +2379,26 @@ int fdt_del_node(void *fdt, int nodeoffset);
  *	-FDT_ERR_TRUNCATED, standard meanings
  */
 int fdt_overlay_apply(void *fdt, void *fdto);
+
+/**
+ * fdt_overlay_target_offset_v2 - retrieves the offset of a fragment's target
+ * @fdt: Base device tree blob
+ * @fdto: Device tree overlay blob
+ * @fragment_offset: node offset of the fragment in the overlay
+ * @pathp: pointer which receives the path of the target (or NULL)
+ * @path_prefix: prefix added to any target-path property
+ *
+ * fdt_overlay_target_offset_v2() retrieves the target offset in the base
+ * device tree of a fragment, no matter how the actual targeting is
+ * done (through a phandle or a path)
+ *
+ * returns:
+ *      the targeted node offset in the base device tree
+ *      Negative error code on error
+ */
+int fdt_overlay_target_offset_v2(const void *fdt, const void *fdto,
+				 int fragment_offset, char const **pathp,
+				 const char *path_prefix);
 
 /**
  * fdt_overlay_target_offset - retrieves the offset of a fragment's target

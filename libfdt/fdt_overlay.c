@@ -40,8 +40,9 @@ static uint32_t overlay_get_target_phandle(const void *fdto, int fragment)
 	return fdt32_to_cpu(*val);
 }
 
-int fdt_overlay_target_offset(const void *fdt, const void *fdto,
-			      int fragment_offset, char const **pathp)
+int fdt_overlay_target_offset_v2(const void *fdt, const void *fdto,
+				 int fragment_offset, char const **pathp,
+				 const char *target)
 {
 	uint32_t phandle;
 	const char *path = NULL;
@@ -56,10 +57,24 @@ int fdt_overlay_target_offset(const void *fdt, const void *fdto,
 	if (!phandle) {
 		/* And then a path based lookup */
 		path = fdt_getprop(fdto, fragment_offset, "target-path", &path_len);
-		if (path)
-			ret = fdt_path_offset(fdt, path);
-		else
+		if (path) {
+			/* Either target or path should be non-null */
+			if (target == NULL && strlen(path) == 0)
+				return -FDT_ERR_BADPATH;
+
+			ret = 0;
+			if (target) {
+				ret = fdt_path_offset(fdt, target);
+
+				if (ret < 0)
+					return ret;
+			}
+
+			if (strlen(path) > 0)
+				ret = fdt_relative_path_offset(fdt, path, ret);
+		} else {
 			ret = path_len;
+		}
 	} else
 		ret = fdt_node_offset_by_phandle(fdt, phandle);
 
@@ -82,6 +97,13 @@ int fdt_overlay_target_offset(const void *fdt, const void *fdto,
 		*pathp = path ? path : NULL;
 
 	return ret;
+}
+
+int fdt_overlay_target_offset(const void *fdt, const void *fdto,
+			      int fragment_offset, char const **pathp)
+{
+	return fdt_overlay_target_offset_v2(fdt, fdto, fragment_offset, pathp,
+					    NULL);
 }
 
 /**
@@ -710,7 +732,8 @@ static int overlay_prevent_phandle_overwrite_node(void *fdt, int fdtnode,
  *      0 on success
  *      Negative error code on failure
  */
-static int overlay_prevent_phandle_overwrite(void *fdt, void *fdto)
+static int overlay_prevent_phandle_overwrite(void *fdt, void *fdto,
+					     const char *target_path)
 {
 	int fragment;
 
@@ -726,7 +749,8 @@ static int overlay_prevent_phandle_overwrite(void *fdt, void *fdto)
 		if (overlay < 0)
 			return overlay;
 
-		target = fdt_overlay_target_offset(fdt, fdto, fragment, NULL);
+		target = fdt_overlay_target_offset_v2(fdt, fdto, fragment, NULL,
+						      target_path);
 		if (target == -FDT_ERR_NOTFOUND)
 			/*
 			 * The subtree doesn't exist in the base, so nothing
@@ -826,7 +850,7 @@ static int overlay_apply_node(void *fdt, int target,
  *      0 on success
  *      Negative error code on failure
  */
-static int overlay_merge(void *fdt, void *fdto)
+static int overlay_merge(void *fdt, void *fdto, const char *target_path)
 {
 	int fragment;
 
@@ -846,7 +870,8 @@ static int overlay_merge(void *fdt, void *fdto)
 		if (overlay < 0)
 			return overlay;
 
-		target = fdt_overlay_target_offset(fdt, fdto, fragment, NULL);
+		target = fdt_overlay_target_offset_v2(fdt, fdto, fragment, NULL,
+						      target_path);
 		if (target < 0)
 			return target;
 
@@ -902,7 +927,7 @@ static int get_path_len(const void *fdt, int nodeoffset)
  *      0 on success
  *      Negative error code on failure
  */
-static int overlay_symbol_update(void *fdt, void *fdto)
+static int overlay_symbol_update(void *fdt, void *fdto, const char *target_p)
 {
 	int root_sym, ov_sym, prop, path_len, fragment, target;
 	int len, frag_name_len, ret, rel_path_len;
@@ -989,7 +1014,8 @@ static int overlay_symbol_update(void *fdt, void *fdto)
 			return -FDT_ERR_BADOVERLAY;
 
 		/* get the target of the fragment */
-		ret = fdt_overlay_target_offset(fdt, fdto, fragment, &target_path);
+		ret = fdt_overlay_target_offset_v2(fdt, fdto, fragment,
+						   &target_path, target_p);
 		if (ret < 0)
 			return ret;
 		target = ret;
@@ -1011,7 +1037,8 @@ static int overlay_symbol_update(void *fdt, void *fdto)
 
 		if (!target_path) {
 			/* again in case setprop_placeholder changed it */
-			ret = fdt_overlay_target_offset(fdt, fdto, fragment, &target_path);
+			ret = fdt_overlay_target_offset_v2(fdt, fdto, fragment,
+							   &target_path, NULL);
 			if (ret < 0)
 				return ret;
 			target = ret;
@@ -1039,6 +1066,11 @@ static int overlay_symbol_update(void *fdt, void *fdto)
 
 int fdt_overlay_apply(void *fdt, void *fdto)
 {
+	return fdt_overlay_apply_with_target(fdt, fdto, NULL);
+}
+
+int fdt_overlay_apply_with_target(void *fdt, void *fdto, const char *target)
+{
 	uint32_t delta;
 	int ret;
 
@@ -1065,15 +1097,15 @@ int fdt_overlay_apply(void *fdt, void *fdto)
 		goto err;
 
 	/* Don't overwrite phandles in fdt */
-	ret = overlay_prevent_phandle_overwrite(fdt, fdto);
+	ret = overlay_prevent_phandle_overwrite(fdt, fdto, target);
 	if (ret)
 		goto err;
 
-	ret = overlay_merge(fdt, fdto);
+	ret = overlay_merge(fdt, fdto, target);
 	if (ret)
 		goto err;
 
-	ret = overlay_symbol_update(fdt, fdto);
+	ret = overlay_symbol_update(fdt, fdto, target);
 	if (ret)
 		goto err;
 
