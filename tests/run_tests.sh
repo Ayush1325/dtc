@@ -1057,6 +1057,20 @@ fdtoverlay_tests() {
 
     run_fdtoverlay_test baz "/foonode/barnode/baznode" "baz-property" "-ts" ${stacked_base_nolabeldtb} ${stacked_addlabel_targetdtb} ${stacked_addlabeldtb} ${stacked_bardtb} ${stacked_bazdtb}
 
+    # test applying overlay to a target
+    overlay_base="$SRCDIR/overlay_base.dts"
+    overlay_basedtb=overlay_base.test.dtb
+    overlay_target="$SRCDIR/overlay_target.dts"
+    overlay_targetdtb=overlay_target.test.dtb
+
+    run_dtc_test -@ -I dts -O dtb -o $overlay_basedtb $overlay_base
+    run_dtc_test -@ -I dts -O dtb -o $overlay_targetdtb $overlay_target
+
+    run_wrap_test $FDTOVERLAY -t "/test-node" -i $overlay_basedtb -o overlay_base0.test.dtb $overlay_targetdtb
+
+    run_fdtget_test "1" overlay_base0.test.dtb "/test-node" "test-str-property"
+    run_fdtget_test "2" overlay_base0.test.dtb "/test-node/sub-test-node" "test-str-property"
+
     # verify that phandles are not overwritten
     run_dtc_test -@ -I dts -O dtb -o overlay_base_phandle.test.dtb "$SRCDIR/overlay_base_phandle.dts"
     run_dtc_test -@ -I dts -O dtb -o overlay_overlay_phandle.test.dtb "$SRCDIR/overlay_overlay_phandle.dts"
